@@ -69,6 +69,11 @@ python3 token_tuner.py hook-config      # prints a settings.json snippet; you me
 python3 token_tuner.py hook --dry-run --transcript <a .jsonl under ~/.claude/projects>   # try it first
 ```
 
+Add `--block` to the hook command to stop an expensive prompt before it is sent: when the cache has
+probably expired, or the context first passes the urgent level, the hook holds that one message and
+shows you the options, cheapest first (`/clear`, then `/compact`, then sending it again as-is).
+Sending the message again goes through; you are only stopped once per long break or context level.
+
 These are nudges, not automation: as far as we know a hook cannot run `/compact` for you, and Claude
 is only asked to relay the note. Thresholds are heuristics; tune them with flags on the hook command
 (`--ctx-warn`, `--ctx-urgent`, `--cache-ttl-min`, `--streak`, `--repeat`).

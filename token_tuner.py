@@ -503,8 +503,10 @@ def last_turn_tools(entries):
 
 
 def compute_nudges(entries, cfg, now, st):
-    """Return (messages, new_state). Messages contain numbers only. `st` is this session's saved state."""
-    msgs, new = [], dict(st)
+    """Return (messages, new_state, big). Messages contain numbers only. `st` is this session's saved state.
+    `big` is None, or {"ctx": tokens, "idle": minutes or None} when the next turn would be expensive:
+    the context just crossed the urgent level, or the prompt cache has probably expired."""
+    msgs, new, big = [], dict(st), None
     ctx = 0
     for e in reversed(entries):
         u = (e.get("message") or {}).get("usage") if e.get("type") == "assistant" else None
@@ -517,6 +519,7 @@ def compute_nudges(entries, cfg, now, st):
     level = 2 if ctx >= cfg["ctx_urgent"] else 1 if ctx >= cfg["ctx_warn"] else 0
     if level > st.get("ctx_level", 0):
         if level == 2:
+            big = {"ctx": ctx, "idle": None}
             msgs.append(f"The context is about {fmt(ctx)} tokens and is re-read on every turn. "
                         "Recommend /compact or a fresh session now.")
         else:
@@ -541,6 +544,7 @@ def compute_nudges(entries, cfg, now, st):
                             f"expired and the next turn may re-process the whole ~{fmt(ctx)} context at "
                             "full price. Suggest /compact or /clear first if the old context isn't needed.")
                 new["cache_ts"] = ts_raw
+                big = {"ctx": ctx, "idle": int(idle)}
         except ValueError:
             pass
 
@@ -561,7 +565,26 @@ def compute_nudges(entries, cfg, now, st):
             msgs.append(f"The last turn ran the same shell command {worst} times. "
                         "Ask the user whether to change approach instead of retrying.")
         new["turn_key"] = key
-    return msgs, new
+    return msgs, new, big
+
+
+def block_reason(big):
+    """Text shown to the user (not Claude) when --block holds an expensive prompt."""
+    ctx = fmt(big["ctx"])
+    if big["idle"] is not None:
+        m = big["idle"]
+        away = f"{m} min" if m < 120 else f"{m // 60} h" if m < 2880 else f"{m // 1440} days"
+        why = (f"You were away about {away}, so the prompt cache has probably expired. "
+               f"Sending now re-processes the whole ~{ctx} context at full price.")
+    else:
+        why = f"The context is about {ctx} tokens, and every message re-reads all of it."
+    return ("[token-tuner] Held this message before it was sent. " + why + "\n"
+            "Cheapest first:\n"
+            "  1. /clear  - drop the old context if you don't need it (almost free). You can point the new\n"
+            "     context at the files or notes you need instead of carrying the whole history.\n"
+            f"  2. /compact <what to keep>  - one pass over the ~{ctx} now, then every later turn starts small.\n"
+            f"  3. Send your message again to go ahead as-is (~{ctx} now and on every later turn).\n"
+            "Your message was not sent; type or paste it again after choosing.")
 
 
 def load_nudge_state():
@@ -601,16 +624,23 @@ def cmd_hook(args):
         cfg = dict(ctx_warn=args.ctx_warn, ctx_urgent=args.ctx_urgent, cache_ttl_min=args.cache_ttl_min,
                    cache_min_ctx=HOOK_CACHE_MIN_CTX, streak=args.streak, repeat=args.repeat)
         state = load_nudge_state()
-        msgs, new = compute_nudges(read_tail_entries(path), cfg,
-                                   datetime.datetime.now(datetime.timezone.utc), state.get(sid, {}))
+        msgs, new, big = compute_nudges(read_tail_entries(path), cfg,
+                                        datetime.datetime.now(datetime.timezone.utc), state.get(sid, {}))
+        hold = bool(args.block and big)
         if args.dry_run:
-            print("\n".join(msgs) if msgs else "(no nudge right now)")
+            if hold:
+                print("(would block this prompt)\n" + block_reason(big))
+            else:
+                print("\n".join(msgs) if msgs else "(no nudge right now)")
             return 0
         if new != state.get(sid, {}):
             state.pop(sid, None)
             state[sid] = new
             save_nudge_state(state)
-        if msgs:
+        # the state above is saved first, so the same prompt sent again goes through
+        if hold:
+            print(json.dumps({"decision": "block", "reason": block_reason(big)}))
+        elif msgs:
             note = ("[token-tuner] Before answering, tell the user in one short sentence: "
                     + " ".join(msgs) + " Then continue with their request.")
             print(json.dumps({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
@@ -626,7 +656,8 @@ def cmd_hook_config(_args):
     print(json.dumps(snippet, indent=2))
     print('\nMerge the "hooks" entry into ~/.claude/settings.json yourself; this tool never edits it.\n'
           "Try it first without installing:\n"
-          "  python3 token_tuner.py hook --dry-run --transcript <a .jsonl under ~/.claude/projects>")
+          "  python3 token_tuner.py hook --dry-run --transcript <a .jsonl under ~/.claude/projects>"
+          "\nAdd --block to the command to hold an expensive prompt once and show cheaper options.")
     return 0
 
 
@@ -658,6 +689,8 @@ def main(argv=None):
     sp.add_argument("--cache-ttl-min", type=int, default=HOOK_CACHE_TTL_MIN)
     sp.add_argument("--streak", type=int, default=HOOK_STREAK)
     sp.add_argument("--repeat", type=int, default=HOOK_REPEAT)
+    sp.add_argument("--block", action="store_true",
+                    help="hold an expensive prompt once (cold cache or urgent context) and show options")
     sp.set_defaults(fn=cmd_hook)
     sp = sub.add_parser("hook-config", help="print the settings.json snippet that installs the hook")
     sp.set_defaults(fn=cmd_hook_config)

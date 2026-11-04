@@ -223,6 +223,27 @@ printed = subprocess.run([sys.executable, str(SCRIPT), "hook", "--dry-run", "--t
 assert "Recommend /compact" in printed
 assert "dry" not in json.loads((tmp / "state" / "nudges.json").read_text())
 
+# 10b: --block holds an expensive prompt once, then the resend goes through
+def blocked(out):
+    d = json.loads(out)
+    assert d["decision"] == "block", d
+    return d["reason"]
+
+p = hook_transcript("coldblk", 400_000, idle_min=120)
+r = blocked(run_hook(p, None, None, "--block"))
+assert "/clear" in r and "/compact" in r and "Send your message again" in r and "about 2 h" in r, r
+assert run_hook(p, None, None, "--block") == "", "resend after a hold must go through"
+p = hook_transcript("bigblk", 600_000)
+assert "about 600.0K" in blocked(run_hook(p, None, None, "--block"))
+assert run_hook(p, None, None, "--block") == ""
+# warn level, small context, and the default (no --block) never hold a prompt
+assert "decision" not in run_hook(hook_transcript("warnblk", 300_000), None, None, "--block")
+assert run_hook(hook_transcript("smallblk", 50_000, idle_min=120), None, None, "--block") == ""
+assert "decision" not in run_hook(hook_transcript("noblk", 600_000))
+printed = subprocess.run([sys.executable, str(SCRIPT), "hook", "--dry-run", "--block", "--transcript",
+                          str(hook_transcript("dryblk", 700_000))], env=env, capture_output=True, text=True).stdout
+assert "would block" in printed
+
 # 11: hook-config prints a valid settings snippet and does not touch settings files
 rc, out = run("hook-config")
 snippet = json.loads(out.split("\n\nMerge")[0])

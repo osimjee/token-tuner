@@ -56,7 +56,8 @@ python3 -I audit_check.py        # exit code 0 = no findings
   only (our tests check that no file paths or shell commands leak into it) and asks Claude to relay it.
   Claude is not guaranteed to follow that, and each nudge costs a few dozen tokens.
 - **The hook runs on every prompt once installed.** It is written to stay silent and exit 0 on any
-  problem, so it should never block a prompt, but remove it from `settings.json` to disable it. This
+  problem, so it never blocks a prompt unless you add `--block` (then it holds at most one prompt
+  per long break or context level, and sending it again goes through), but remove it from `settings.json` to disable it. This
   tool only prints the snippet (`hook-config`) and never edits your settings.
 - **The hook depends on Claude Code's hook input format** (field names such as `transcript_path`,
   `session_id`, and transcript `timestamp`). If that changes, the hook goes silent rather than failing.
