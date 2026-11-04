@@ -7,11 +7,24 @@ no network calls.
 ## Security disclaimer
 
 This tool reads session transcripts, which can contain code, secrets, and private conversation.
-**We do our best to keep it safe, but nothing here is guaranteed: do your own security review before
+**We do our best to keep it safe; do your own security review before
 using it.** It is provided as-is, without warranty. Read `token_tuner.py` first (it is short), run
 `python3 -I audit_check.py` to re-check that it makes no network or subprocess calls and only touches
 the files listed in [SECURITY.md](SECURITY.md), and note the known limits there, including that this
 tool and its audit were written by an AI assistant and are not independently reviewed.
+
+## Install
+
+As a Claude Code plugin (adds a `token-tuner` skill that runs the script for you):
+
+```bash
+claude plugin marketplace add osimjee/token-tuner
+claude plugin install token-tuner@token-tuner
+```
+
+Or inside a session: `/plugin install token-tuner --marketplace osimjee/token-tuner`. The plugin ships
+only the skill; the nudge hook is never installed automatically (see below). Or just clone the repo
+and run the script directly, as in Usage.
 
 ## Usage
 
@@ -88,3 +101,5 @@ Run `report` and `apply --dry-run` by hand a few times first, so you trust what 
   ones. If `report` finds nothing, check that `~/.claude/projects/` has recent `.jsonl` files.
 
 Run the tests with `python3 test_token_tuner.py`.
+
+Licensed under the [MIT License](LICENSE).

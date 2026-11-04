@@ -7,7 +7,7 @@ secrets you pasted, and private conversation. **We do our best to keep this tool
 here is guaranteed. Do your own security review before running it.** It is provided as-is, without
 warranty of any kind. You are responsible for what you run on your machine.
 
-It is only ~430 lines of standard-library Python. Read `token_tuner.py` yourself, or have someone you
+It is only ~670 lines of standard-library Python. Read `token_tuner.py` yourself, or have someone you
 trust read it, before the first run.
 
 ## What it accesses
@@ -71,6 +71,15 @@ python3 -I audit_check.py        # exit code 0 = no findings
 - **Transcripts may contain secrets.** The tool does not copy transcript content except the
   `--include-repeated` feature above, but the files it reads are sensitive; keep that in mind before
   sharing any output.
+
+## Plugin install
+
+The plugin form adds `.claude-plugin/` manifests and `skills/token-tuner/SKILL.md`, which tells Claude
+how to run the same script. It registers no hooks and edits no settings. Installing a plugin copies
+this repository into Claude Code's plugin cache, so the same review advice applies: read the code, and
+compare it with the commit you reviewed. The skill instructs Claude to preview changes and not to
+apply them without your confirmation, but Claude is not guaranteed to follow that; the script's own
+diff-and-confirm step is the real guard.
 
 ## Found a problem?
 

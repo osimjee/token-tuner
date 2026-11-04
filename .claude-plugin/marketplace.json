@@ -1,0 +1,12 @@
+{
+  "name": "token-tuner",
+  "description": "Token Tuner: find token-wasting patterns in your Claude Code sessions",
+  "owner": { "name": "Omar Simjee" },
+  "plugins": [
+    {
+      "name": "token-tuner",
+      "source": "./",
+      "description": "Reads local session transcripts, reports token-wasting patterns, and proposes CLAUDE.md rules you approve first."
+    }
+  ]
+}

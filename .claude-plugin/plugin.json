@@ -1,0 +1,11 @@
+{
+  "name": "token-tuner",
+  "displayName": "Token Tuner",
+  "version": "0.1.0",
+  "description": "Reads your local Claude Code transcripts, finds token-wasting patterns, and proposes a small managed block of rules for CLAUDE.md. Propose-then-apply, stdlib-only, no network.",
+  "author": { "name": "Omar Simjee" },
+  "homepage": "https://github.com/osimjee/token-tuner",
+  "repository": "https://github.com/osimjee/token-tuner",
+  "license": "MIT",
+  "keywords": ["tokens", "cost", "claude-md", "optimization"]
+}
